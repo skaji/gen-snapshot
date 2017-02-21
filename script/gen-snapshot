@@ -1,0 +1,53 @@
+#!perl
+use strict;
+use CPAN::Meta::Requirements;
+use Carton::Snapshot::Emitter;
+use Carton::Snapshot;
+use Getopt::Long ();
+use Path::Tiny ();
+
+=head1 NAME
+
+gen-snapshot - generate snapshot/index from local lib
+
+=head1 SYNOPSIS
+
+  > gen-snapshot [options] [directory]
+
+  Options:
+   -h, --help   show help
+   -i, --index  generate index instead of snapshot
+
+  Examples:
+   # generate snapshot for ./local
+   > gen-snapshot
+
+   # generate snapshot for ./extlib
+   > gen-snapshot ./extlib
+
+   # generate index for ./extlib
+   > gen-snapshot --index ./extlib
+
+=cut
+
+sub help {
+    require Pod::Usage;
+    Pod::Usage::pod2usage(0);
+}
+
+sub generate {
+    my $local = shift;
+    my $snapshot = Carton::Snapshot->new(path => "dummy");
+    my $no_exclude = CPAN::Meta::Requirements->new;
+    $snapshot->find_installs($local, $no_exclude);
+    my $content = Carton::Snapshot::Emitter->emit($snapshot);
+    my $index; $snapshot->index->write(do { open my $fh, ">", \$index; $fh });
+    ($content, $index);
+}
+
+Getopt::Long::Configure(qw(no_auto_abbrev no_ignore_case bundling));
+Getopt::Long::GetOptions("h|help" => \&help, "i|index" => \my $gen_index) or exit 1;
+
+my $local = shift || "local";
+my ($snapshot, $index) = generate $local;
+print $gen_index ? $index : $snapshot;
